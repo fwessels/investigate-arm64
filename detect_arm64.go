@@ -1,34 +1,16 @@
-// Copyright (c) 2015 Klaus Post, released under MIT License. See LICENSE file.
-
-// +build arm64,!gccgo,!noasm,!appengine
-
 package cpuid
+
+import (
+	"fmt"
+)
 
 func getMidr() (midr uint64)
 func getProcFeatures() (procFeatures uint64)
 func getInstAttributes() (instAttrReg0, instAttrReg1 uint64)
 
-func initCPU() {
-	cpuid = func(op uint32) (eax, ebx, ecx, edx uint32) {
-		return 0, 0, 0, 0
-	}
+func dumpMidr() {
 
-	cpuidex = func(op, op2 uint32) (eax, ebx, ecx, edx uint32) {
-		return 0, 0, 0, 0
-	}
-
-	xgetbv = func(index uint32) (eax, edx uint32) {
-		return 0, 0
-	}
-
-	rdtscpAsm = func() (eax, ebx, ecx, edx uint32) {
-		return 0, 0, 0, 0
-	}
-}
-
-func supportArm64() (flags Flags) {
-
-	// 	midr := getMidr()
+	midr := getMidr()
 
 	// MIDR_EL1 - Main ID Register
 	//  x--------------------------------------------------x
@@ -45,13 +27,18 @@ func supportArm64() (flags Flags) {
 	//  | Revision                     | [3-0]   |    y    |
 	//  x--------------------------------------------------x
 
-	// 	fmt.Printf(" implementer:  0x%02x\n", (midr>>24)&0xff)
-	// 	fmt.Printf("     variant:   0x%01x\n", (midr>>20)&0xf)
-	// 	fmt.Printf("architecture:   0x%01x\n", (midr>>16)&0xf)
-	// 	fmt.Printf("    part num: 0x%03x\n", (midr>>4)&0xfff)
-	// 	fmt.Printf("    revision:   0x%01x\n", (midr>>0)&0xf)
+	fmt.Printf(" implementer:  0x%02x\n", (midr>>24)&0xff)
+	fmt.Printf("     variant:   0x%01x\n", (midr>>20)&0xf)
+	fmt.Printf("architecture:   0x%01x\n", (midr>>16)&0xf)
+	fmt.Printf("    part num: 0x%03x\n", (midr>>4)&0xfff)
+	fmt.Printf("    revision:   0x%01x\n", (midr>>0)&0xf)
+}
+
+func dumpProcFeatures() {
 
 	procFeatures := getProcFeatures()
+
+	fmt.Printf("Processor Feature Register 0: 0x%016x\n", procFeatures)
 
 	// ID_AA64PFR0_EL1 - Processor Feature Register 0
 	// x--------------------------------------------------x
@@ -79,23 +66,28 @@ func supportArm64() (flags Flags) {
 	// if procFeatures&(0xf<<48) != 0 {
 	// 	fmt.Println("DIT")
 	// }
-	if procFeatures&(0xf<<32) != 0 {
-		flags |= CPU_ARM64_FEATURE_SVE
-	}
-	if procFeatures&(0xf<<20) != 15<<20 {
-		flags |= CPU_ARM64_FEATURE_ASIMD
-		if procFeatures&(0xf<<20) == 1<<20 {
-			// https://developer.arm.com/docs/ddi0595/b/aarch64-system-registers/id_aa64pfr0_el1
-			// 0b0001 --> As for 0b0000, and also includes support for half-precision floating-point arithmetic.
-			flags |= CPU_ARM64_FEATURE_FPHP
-			flags |= CPU_ARM64_FEATURE_ASIMDHP
-		}
-	}
-	if procFeatures&(0xf<<16) != 0 {
-		flags |= CPU_ARM64_FEATURE_FP
-	}
+	//if procFeatures&(0xf<<32) != 0 {
+	//	flags |= CPU_ARM64_FEATURE_SVE
+	//}
+	//if procFeatures&(0xf<<20) != 15<<20 {
+	//	flags |= CPU_ARM64_FEATURE_ASIMD
+	//	if procFeatures&(0xf<<20) == 1<<20 {
+	//		// https://developer.arm.com/docs/ddi0595/b/aarch64-system-registers/id_aa64pfr0_el1
+	//		// 0b0001 --> As for 0b0000, and also includes support for half-precision floating-point arithmetic.
+	//		flags |= CPU_ARM64_FEATURE_FPHP
+	//		flags |= CPU_ARM64_FEATURE_ASIMDHP
+	//	}
+	//}
+	//if procFeatures&(0xf<<16) != 0 {
+	//	flags |= CPU_ARM64_FEATURE_FP
+	//}
+}
 
+func dumpInstAttributes() {
 	instAttrReg0, instAttrReg1 := getInstAttributes()
+
+	fmt.Printf("Instruction Set Attribute Register 0: 0x%016x\n", instAttrReg0)
+	fmt.Printf("Instruction Set Attribute Register 1: 0x%016x\n", instAttrReg1)
 
 	// https://developer.arm.com/docs/ddi0595/b/aarch64-system-registers/id_aa64isar0_el1
 	//
@@ -134,46 +126,46 @@ func supportArm64() (flags Flags) {
 	// if instAttrReg0&(0xf<<48) != 0 {
 	// 	fmt.Println("FHM")
 	// }
-	if instAttrReg0&(0xf<<44) != 0 {
-		flags |= CPU_ARM64_FEATURE_ASIMDDP
-	}
-	if instAttrReg0&(0xf<<40) != 0 {
-		flags |= CPU_ARM64_FEATURE_SM4
-	}
-	if instAttrReg0&(0xf<<36) != 0 {
-		flags |= CPU_ARM64_FEATURE_SM3
-	}
-	if instAttrReg0&(0xf<<32) != 0 {
-		flags |= CPU_ARM64_FEATURE_SHA3
-	}
-	if instAttrReg0&(0xf<<28) != 0 {
-		flags |= CPU_ARM64_FEATURE_ASIMDRDM
-	}
-	if instAttrReg0&(0xf<<20) != 0 {
-		flags |= CPU_ARM64_FEATURE_ATOMICS
-	}
-	if instAttrReg0&(0xf<<16) != 0 {
-		flags |= CPU_ARM64_FEATURE_CRC32
-	}
-	if instAttrReg0&(0xf<<12) != 0 {
-		flags |= CPU_ARM64_FEATURE_SHA2
-	}
-	if instAttrReg0&(0xf<<12) == 2<<12 {
-		// https://developer.arm.com/docs/ddi0595/b/aarch64-system-registers/id_aa64isar0_el1
-		// 0b0010 --> As 0b0001, plus SHA512H, SHA512H2, SHA512SU0, and SHA512SU1 instructions implemented.
-		flags |= CPU_ARM64_FEATURE_SHA512
-	}
-	if instAttrReg0&(0xf<<8) != 0 {
-		flags |= CPU_ARM64_FEATURE_SHA1
-	}
-	if instAttrReg0&(0xf<<4) != 0 {
-		flags |= CPU_ARM64_FEATURE_AES
-	}
-	if instAttrReg0&(0xf<<4) == 2<<4 {
-		// https://developer.arm.com/docs/ddi0595/b/aarch64-system-registers/id_aa64isar0_el1
-		// 0b0010 --> As for 0b0001, plus PMULL/PMULL2 instructions operating on 64-bit data quantities.
-		flags |= CPU_ARM64_FEATURE_PMULL
-	}
+	//if instAttrReg0&(0xf<<44) != 0 {
+	//	flags |= CPU_ARM64_FEATURE_ASIMDDP
+	//}
+	//if instAttrReg0&(0xf<<40) != 0 {
+	//	flags |= CPU_ARM64_FEATURE_SM4
+	//}
+	//if instAttrReg0&(0xf<<36) != 0 {
+	//	flags |= CPU_ARM64_FEATURE_SM3
+	//}
+	//if instAttrReg0&(0xf<<32) != 0 {
+	//	flags |= CPU_ARM64_FEATURE_SHA3
+	//}
+	//if instAttrReg0&(0xf<<28) != 0 {
+	//	flags |= CPU_ARM64_FEATURE_ASIMDRDM
+	//}
+	//if instAttrReg0&(0xf<<20) != 0 {
+	//	flags |= CPU_ARM64_FEATURE_ATOMICS
+	//}
+	//if instAttrReg0&(0xf<<16) != 0 {
+	//	flags |= CPU_ARM64_FEATURE_CRC32
+	//}
+	//if instAttrReg0&(0xf<<12) != 0 {
+	//	flags |= CPU_ARM64_FEATURE_SHA2
+	//}
+	//if instAttrReg0&(0xf<<12) == 2<<12 {
+	//	// https://developer.arm.com/docs/ddi0595/b/aarch64-system-registers/id_aa64isar0_el1
+	//	// 0b0010 --> As 0b0001, plus SHA512H, SHA512H2, SHA512SU0, and SHA512SU1 instructions implemented.
+	//	flags |= CPU_ARM64_FEATURE_SHA512
+	//}
+	//if instAttrReg0&(0xf<<8) != 0 {
+	//	flags |= CPU_ARM64_FEATURE_SHA1
+	//}
+	//if instAttrReg0&(0xf<<4) != 0 {
+	//	flags |= CPU_ARM64_FEATURE_AES
+	//}
+	//if instAttrReg0&(0xf<<4) == 2<<4 {
+	//	// https://developer.arm.com/docs/ddi0595/b/aarch64-system-registers/id_aa64isar0_el1
+	//	// 0b0010 --> As for 0b0001, plus PMULL/PMULL2 instructions operating on 64-bit data quantities.
+	//	flags |= CPU_ARM64_FEATURE_PMULL
+	//}
 
 	// https://developer.arm.com/docs/ddi0595/b/aarch64-system-registers/id_aa64isar1_el1
 	//
@@ -201,27 +193,27 @@ func supportArm64() (flags Flags) {
 	// if instAttrReg1&(0xf<<28) != 0 {
 	// 	fmt.Println("GPI")
 	// }
-	if instAttrReg1&(0xf<<28) != 24 {
-		flags |= CPU_ARM64_FEATURE_GPA
-	}
-	if instAttrReg1&(0xf<<20) != 0 {
-		flags |= CPU_ARM64_FEATURE_LRCPC
-	}
-	if instAttrReg1&(0xf<<16) != 0 {
-		flags |= CPU_ARM64_FEATURE_FCMA
-	}
-	if instAttrReg1&(0xf<<12) != 0 {
-		flags |= CPU_ARM64_FEATURE_JSCVT
-	}
-	// if instAttrReg1&(0xf<<8) != 0 {
-	// 	fmt.Println("API")
-	// }
-	// if instAttrReg1&(0xf<<4) != 0 {
-	// 	fmt.Println("APA")
-	// }
-	if instAttrReg1&(0xf<<0) != 0 {
-		flags |= CPU_ARM64_FEATURE_DCPOP
-	}
+	//if instAttrReg1&(0xf<<28) != 24 {
+	//	flags |= CPU_ARM64_FEATURE_GPA
+	//}
+	//if instAttrReg1&(0xf<<20) != 0 {
+	//	flags |= CPU_ARM64_FEATURE_LRCPC
+	//}
+	//if instAttrReg1&(0xf<<16) != 0 {
+	//	flags |= CPU_ARM64_FEATURE_FCMA
+	//}
+	//if instAttrReg1&(0xf<<12) != 0 {
+	//	flags |= CPU_ARM64_FEATURE_JSCVT
+	//}
+	//// if instAttrReg1&(0xf<<8) != 0 {
+	//// 	fmt.Println("API")
+	//// }
+	//// if instAttrReg1&(0xf<<4) != 0 {
+	//// 	fmt.Println("APA")
+	//// }
+	//if instAttrReg1&(0xf<<0) != 0 {
+	//	flags |= CPU_ARM64_FEATURE_DCPOP
+	//}
 
 	return
 }
